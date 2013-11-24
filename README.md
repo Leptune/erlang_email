@@ -7,7 +7,7 @@ compile: erlc -W *.erl
 Example:(in the erlang shell) 
 1> rr("email.hrl").
 
-2> E = E=#email{
+2> E = #email{
 
 2> server_ip="smtp.exmail.qq.com", 
 
