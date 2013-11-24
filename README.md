@@ -5,6 +5,7 @@ using erlang to send email (text,html,attachments) with smtp
 compile: erlc -W *.erl
 
 Example:(in the erlang shell) 
+
 1> rr("email.hrl").
 
 2> E = #email{
