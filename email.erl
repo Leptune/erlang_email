@@ -60,7 +60,7 @@ send_email_info(Sock, Email) ->
     send_socket(Sock, "SUBJECT:"),
     case Email#email.subject of
         undefined -> send_socket(Sock, " ");
-        Subject   -> send_socket(Sock, Subject)
+        Subject   -> send_socket(Sock, unicode:characters_to_list(Subject))
     end,
     send_socket(Sock, "\r\n"),
     send_socket(Sock, "MIME-VERSION: 1.0\r\n"),
