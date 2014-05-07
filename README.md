@@ -4,7 +4,7 @@ using erlang to send email (text,html,attachments) with smtp
 
 compile: erlc -W *.erl
 
-Example:(in the erlang shell) 
+Example:(in the erlang shell) (please compile first)
 
 1> rr("email.hrl").
 
