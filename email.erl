@@ -1,5 +1,5 @@
 -module(email).
--export([send/1]).
+-export([send/1, test/0]).
 -include("email.hrl").
 
 -define(MAX_SIZE, 1024).
@@ -152,3 +152,11 @@ recv_socket(Sock) ->
         {ok   , Packet} -> io:format("~p~n", [binary_to_list(Packet)]);
         {error, Reason} -> io:format("recv failed: ~p~n", [Reason])
     end.
+
+test() ->
+    send(#email{server_ip   = "smtp.sina.com",
+                server_port = 25,
+                account     = "your sina email account",
+                password    = "your sina email password",
+                subject     = "email test",
+                to_emails   = ["281754179@qq.com"]}).
