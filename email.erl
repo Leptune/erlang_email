@@ -193,6 +193,6 @@ test() ->
                 account     = "965609038@qq.com",
                 password    = "srbank2013",
                 subject     = "smtp邮件测试",
-                html        = "test.html",
-                attachment  = ["test.doc", "test.html", "test.tar", "test.txt"],
+                html        = "testfiles/test.html",
+                attachment  = ["testfiles/test.doc", "testfiles/test.html", "testfiles/test.tar", "testfiles/test.txt"],
                 to_emails   = ["281754179@qq.com"]}).
