@@ -79,9 +79,8 @@ send_email_info(Sock, Email) ->
     send_socket(Sock, "FROM:<" ++ Email#email.account ++ ">\r\n"),
     recv_socket(Sock),
 
-    send_socket(Sock, "SUBJECT:" ++
-                      unicode:characters_to_list(Email#email.subject) ++
-                      "\r\n").
+    Subject = unicode:characters_to_list(Email#email.subject),
+    send_socket(Sock, "SUBJECT:"++ Subject ++ "\r\n").
 
 %% send email data
 send_email_data(Sock, Email) when Email#email.text       =/= undefined;
@@ -165,7 +164,7 @@ rcpt_to_emails(Sock, [ToEmail | Rest]) ->
 
 %% send socket
 send_socket(Sock, Data) when is_list(Data)->
-    send_socket(Sock, unicode:characters_to_binary(Data));
+    send_socket(Sock, list_to_binary(Data));
 send_socket(Sock, Data) when is_binary(Data)->
     io:format("Client: ~p~n", [Data]),
     ok = send(Sock, Data).
@@ -193,8 +192,7 @@ test() ->
     send(#email{server_ip   = "smtp.qq.com",
                 account     = "965609038@qq.com",
                 password    = "srbank2013",
-                subject     = "email test",
-                ssl         = true,
+                subject     = "smtp邮件测试",
                 html        = "test.html",
                 attachment  = ["test.doc", "test.html", "test.tar", "test.txt"],
                 to_emails   = ["281754179@qq.com"]}).
