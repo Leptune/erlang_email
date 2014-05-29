@@ -1,6 +1,8 @@
 -module(email).
--export([send/1, test/0]).
 -include("email.hrl").
+
+-export([send/1]).
+-compile(export_all).
 
 -define(MAX_SIZE, 1024).
 -define(DE, io:format("~p:~p~n", [?FILE, ?LINE])).
@@ -9,15 +11,39 @@
 send(Email) when
         undefined =/= Email#email.server_ip,
         undefined =/= Email#email.account,
+        undefined =/= Email#email.to_emails,
         undefined =/= Email#email.password ->
-    {ok, Sock} = gen_tcp:connect(Email#email.server_ip,
-                                 Email#email.server_port,
-                                 [binary, {active, false}, {packet, 0}]),
+    ServerPort =
+        case Email#email.server_port of
+            undefined -> case Email#email.ssl of
+                             true  -> ?SSL_SERV_PORT_DEF;
+                             false -> ?NOT_SSL_SERV_PORT_DEF
+                         end;
+            Any       -> Any
+        end,
+    Sock =
+        case Email#email.ssl of
+            false -> {ok, Socket} =
+                         gen_tcp:connect(Email#email.server_ip,
+                                         ServerPort,
+                                         [binary, {active, false}, {packet, 0}]),
+                     #socket{type = tcp, sock = Socket};
+            true  -> ok = ssl:start(),
+                     {ok, Socket} =
+                         ssl:connect(Email#email.server_ip,
+                                     ServerPort,
+                                     [],
+                                     infinity),
+                     #socket{type = ssl, sock = Socket}
+        end,
     connect_email(Sock, Email),
     send_email_head(Sock, Email),
     send_email_info(Sock, Email),
     send_email_data(Sock, Email),
-    gen_tcp:close(Sock).
+    case Sock#socket.type of
+        ssl -> ssl:close(Sock#socket.sock);
+        tcp -> gen_tcp:close(Sock#socket.sock)
+    end.
 
 %% connect your email
 connect_email(Sock, Email) ->
@@ -95,6 +121,7 @@ send_email_text(Type, FilePath, Sock) ->
     send_socket(Sock, "\r\n\r\n"),
 
     {ok, Fd} = file:open(FilePath, [binary, read]),
+    io:format("Client: Send ~p to server....~n", [FilePath]),
     send_file_to_email(Sock, Fd, -1),
     ok = file:close(Fd),
     send_socket(Sock, "\r\n\r\n").
@@ -113,6 +140,7 @@ send_email_attachment(Type, [FilePath | Rest], Sock) ->
     send_socket(Sock, "\r\n"),
 
     {ok, Fd} = file:open(FilePath, [binary, read]),
+    io:format("Client: Send ~p to server....~n", [FilePath]),
     send_file_to_email(Sock, Fd, 0),
     ok = file:close(Fd),
     send_socket(Sock, "\r\n\r\n"),
@@ -123,8 +151,8 @@ send_file_to_email(Sock, Fd, Base64Flag) ->
     case file:read(Fd, ?MAX_SIZE) of
         {ok, Data} ->
             case Base64Flag of
-                -1 -> ok = gen_tcp:send(Sock, Data);
-                0  -> ok = gen_tcp:send(Sock, base64:encode(Data))
+                -1 -> ok = send(Sock, Data);
+                0  -> ok = send(Sock, base64:encode(Data))
             end,
             send_file_to_email(Sock, Fd, Base64Flag);
         eof             -> eof;
@@ -142,21 +170,36 @@ rcpt_to_emails(Sock, [ToEmail | Rest]) ->
 
 %% send socket
 send_socket(Sock, Data) when is_list(Data)->
-    ok = gen_tcp:send(Sock, unicode:characters_to_binary(Data));
+    send_socket(Sock, unicode:characters_to_binary(Data));
 send_socket(Sock, Data) when is_binary(Data)->
-    ok = gen_tcp:send(Sock, Data).
+    io:format("Client: ~p~n", [Data]),
+    ok = send(Sock, Data).
 
 %% recv socket
 recv_socket(Sock) ->
-    case gen_tcp:recv(Sock, 0) of
-        {ok   , Packet} -> io:format("~p~n", [binary_to_list(Packet)]);
-        {error, Reason} -> io:format("recv failed: ~p~n", [Reason])
+    case recv(Sock, 0) of
+        {ok   , Packet} -> io:format("Server: ~p~n", [binary_to_list(Packet)]);
+        {error, Reason} -> io:format("Server: recv failed: ~p~n", [Reason])
     end.
+
+%% send data to server via tcp or ssl
+send(Sock, Data) when Sock#socket.type =:= tcp ->
+    gen_tcp:send(Sock#socket.sock, Data);
+send(Sock, Data) when Sock#socket.type =:= ssl ->
+    ssl:send(Sock#socket.sock, Data).
+
+%% recv data to server via tcp or ssl
+recv(Sock, Opinion) when Sock#socket.type =:= tcp ->
+    gen_tcp:recv(Sock#socket.sock, Opinion);
+recv(Sock, Opinion) when Sock#socket.type =:= ssl ->
+    ssl:recv(Sock#socket.sock, Opinion).
 
 test() ->
     send(#email{server_ip   = "smtp.sina.com",
                 server_port = 25,
-                account     = "your sina email account",
-                password    = "your sina email password",
+                account     = "srbank2014@sina.com",
+                password    = "srbank2014",
                 subject     = "email test",
-                to_emails   = ["281754179@qq.com"]}).
+%                text        = "test.txt",
+%                attachment  = ["test.doc", "test.html", "test.tar", "test.txt"],
+                to_emails   = ["1077131006@qq.com"]}).
