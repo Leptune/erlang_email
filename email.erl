@@ -32,7 +32,7 @@ send(Email) when
                      {ok, Socket} =
                          ssl:connect(Email#email.server_ip,
                                      ServerPort,
-                                     [],
+                                     [binary, {active, false}, {packet, 0}],
                                      infinity),
                      #socket{type = ssl, sock = Socket}
         end,
@@ -40,16 +40,16 @@ send(Email) when
     send_email_head(Sock, Email),
     send_email_info(Sock, Email),
     send_email_data(Sock, Email),
+    end_email(Sock),
     case Sock#socket.type of
-        ssl -> ssl:close(Sock#socket.sock);
+        ssl -> ssl:close(Sock#socket.sock),
+               ssl:stop();
         tcp -> gen_tcp:close(Sock#socket.sock)
     end.
 
 %% connect your email
 connect_email(Sock, Email) ->
-   send_socket(Sock, "HELO "),
-   send_socket(Sock, Email#email.account),
-   send_socket(Sock, "\r\n"),
+   send_socket(Sock, "HELO " ++ Email#email.account ++ "\r\n"),
    recv_socket(Sock),
 
    send_socket(Sock, "AUTH LOGIN\r\n"),
@@ -65,9 +65,7 @@ connect_email(Sock, Email) ->
 
 %% send email head
 send_email_head(Sock, Email) ->
-    send_socket(Sock, "MAIL FROM <"),
-    send_socket(Sock, Email#email.account),
-    send_socket(Sock, ">\r\n"),
+    send_socket(Sock, "MAIL FROM <" ++ Email#email.account ++ ">\r\n"),
     recv_socket(Sock),
 
     rcpt_to_emails(Sock, Email#email.to_emails),
@@ -78,23 +76,20 @@ send_email_info(Sock, Email) ->
     send_socket(Sock, "DATA\r\n"),
     recv_socket(Sock),
 
-    send_socket(Sock, "FROM:<"),
-    send_socket(Sock, Email#email.account),
-    send_socket(Sock, ">\r\n"),
+    send_socket(Sock, "FROM:<" ++ Email#email.account ++ ">\r\n"),
     recv_socket(Sock),
 
-    send_socket(Sock, "SUBJECT:"),
-    case Email#email.subject of
-        undefined -> send_socket(Sock, " ");
-        Subject   -> send_socket(Sock, unicode:characters_to_list(Subject))
-    end,
-    send_socket(Sock, "\r\n"),
-    send_socket(Sock, "MIME-VERSION: 1.0\r\n"),
-    send_socket(Sock, "CONTENT-TYPE: multipart/mixed; BOUNDARY=\"#BOUNDARY#\"\r\n"),
-    send_socket(Sock, "\r\n").
+    send_socket(Sock, "SUBJECT:" ++
+                      unicode:characters_to_list(Email#email.subject) ++
+                      "\r\n").
 
 %% send email data
-send_email_data(Sock, Email) ->
+send_email_data(Sock, Email) when Email#email.text       =/= undefined;
+                                  Email#email.html       =/= undefined;
+                                  Email#email.attachment =/= undefined ->
+    send_socket(Sock, "MIME-VERSION: 1.0\r\n"),
+    send_socket(Sock, "CONTENT-TYPE: multipart/mixed; BOUNDARY=\"#BOUNDARY#\"\r\n"),
+    send_socket(Sock, "\r\n"),
     case Email#email.text of
         undefined -> nothing_to_do;
         _         -> send_email_text("text/plain", Email#email.text, Sock)
@@ -106,8 +101,11 @@ send_email_data(Sock, Email) ->
     case Email#email.attachment of
         undefined -> nothing_to_do;
         _         -> send_email_attachment("application/msword", Email#email.attachment, Sock)
-    end,
+    end;
+send_email_data(_Sock, _Email) ->
+    ok.
 
+end_email(Sock) ->
     send_socket(Sock, "\r\n.\r\n"),
     recv_socket(Sock),
     send_socket(Sock, "QUIT\r\n"),
@@ -121,7 +119,6 @@ send_email_text(Type, FilePath, Sock) ->
     send_socket(Sock, "\r\n\r\n"),
 
     {ok, Fd} = file:open(FilePath, [binary, read]),
-    io:format("Client: Send ~p to server....~n", [FilePath]),
     send_file_to_email(Sock, Fd, -1),
     ok = file:close(Fd),
     send_socket(Sock, "\r\n\r\n").
@@ -163,9 +160,7 @@ send_file_to_email(Sock, Fd, Base64Flag) ->
 rcpt_to_emails(_Sock, []) ->
     ok;
 rcpt_to_emails(Sock, [ToEmail | Rest]) ->
-    send_socket(Sock, "RCPT TO <"),
-    send_socket(Sock, ToEmail),
-    send_socket(Sock, ">\r\n"),
+    send_socket(Sock, "RCPT TO <" ++ ToEmail ++ ">\r\n"),
     rcpt_to_emails(Sock, Rest).
 
 %% send socket
@@ -195,11 +190,11 @@ recv(Sock, Opinion) when Sock#socket.type =:= ssl ->
     ssl:recv(Sock#socket.sock, Opinion).
 
 test() ->
-    send(#email{server_ip   = "smtp.sina.com",
-                server_port = 25,
-                account     = "srbank2014@sina.com",
-                password    = "srbank2014",
+    send(#email{server_ip   = "smtp.qq.com",
+                account     = "965609038@qq.com",
+                password    = "srbank2013",
                 subject     = "email test",
-%                text        = "test.txt",
-%                attachment  = ["test.doc", "test.html", "test.tar", "test.txt"],
-                to_emails   = ["1077131006@qq.com"]}).
+                ssl         = true,
+                html        = "test.html",
+                attachment  = ["test.doc", "test.html", "test.tar", "test.txt"],
+                to_emails   = ["281754179@qq.com"]}).
