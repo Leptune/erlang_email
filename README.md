@@ -1,7 +1,10 @@
 ====================erlang_email===================
 关于    : erlang使用smtp和ssl协议来发送邮件(邮件类型：正文文本、正文网页、附件)
+
 编译    : erlc -W *.erl
+
 例子    : 运行test/0函数即可
+
 数据类型:
 	-record(email, {
 			  server_ip   , % (必填) 邮件服务器ip(如: "smtp.qq.com")
