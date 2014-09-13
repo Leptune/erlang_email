@@ -164,7 +164,7 @@ rcpt_to_emails(Sock, [ToEmail | Rest]) ->
 
 %% send socket
 send_socket(Sock, Data) when is_list(Data)->
-    send_socket(Sock, list_to_binary(Data));
+    send_socket(Sock, unicode:characters_to_binary(Data));
 send_socket(Sock, Data) when is_binary(Data)->
     io:format("Client: ~p~n", [Data]),
     ok = send(Sock, Data).
